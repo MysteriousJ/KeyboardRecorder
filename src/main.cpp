@@ -101,20 +101,21 @@ void updateGUI(GUI* gui, AppData* data, SystemInput input, int windowWidth, int 
 			data->mode = Mode_waitingForPlaybackKey;
 		}
 
-		// Enable checkbox
-		nk_layout_row_static(ctx, 20, windowWidth - 25, 1);
-		nk_checkbox_label(ctx, "Enabled", &data->enabled);
-		nk_label(ctx, "Playback speed:", NK_TEXT_LEFT);
-
 		// Playback speed radio buttons
+		nk_layout_row_static(ctx, 20, windowWidth - 25, 1);
+		nk_label(ctx, "Playback speed:", NK_TEXT_LEFT);
 		nk_layout_row_begin(ctx, NK_STATIC, 20, 3);
 		nk_layout_row_push(ctx, 50);
 		if (nk_option_label(ctx, "1:1", data->playbackSpeed == PlaybackSpeed_normal)) data->playbackSpeed = PlaybackSpeed_normal;
 		nk_layout_row_push(ctx, 110);
 		if (nk_option_label(ctx, "Trim Startup", data->playbackSpeed == PlaybackSpeed_trimStartup)) data->playbackSpeed = PlaybackSpeed_trimStartup;
-		nk_layout_row_push(ctx, 50); 
+		nk_layout_row_push(ctx, 50);
 		if (nk_option_label(ctx, "Fast", data->playbackSpeed == PlaybackSpeed_fast)) data->playbackSpeed = PlaybackSpeed_fast;
 		nk_layout_row_end(ctx);
+
+		// Enable checkbox
+		nk_layout_row_static(ctx, 30, windowWidth - 25, 1);
+		nk_checkbox_label(ctx, "Enabled", &data->enabled);
 	}
 	nk_end(ctx);
 }
@@ -190,7 +191,7 @@ bool getAnyKeyDown(SystemInput input, unsigned char* out_key)
 int WINAPI WinMain(HINSTANCE hInstance, HINSTANCE hPrevInstance, PSTR szCmdLine, int iCmdShow)
 {
 	Window win = {0};
-	createWindow(&win, 280, 160);
+	createWindow(&win, 280, 165);
 	setWindowTitle(&win, "- Keyboard Recorder");
 	SystemInput input;
 	AppData data;
