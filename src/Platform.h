@@ -132,7 +132,7 @@ WindowMessages processWindowMessages(Window* inout_win)
 
 void waitForWindowMessages(Window window)
 {
-	//WaitMessage();
+	// WaitMessage doesn't actually wait for some reason
 	MSG msg;
 	GetMessage(&msg, NULL, 0, 0);
 	PostMessage(window.hwnd, msg.message, msg.wParam, msg.lParam);

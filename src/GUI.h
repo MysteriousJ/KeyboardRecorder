@@ -182,7 +182,7 @@ void renderNuklear(GUI* gui, int display_width, int display_height, enum nk_anti
 	glPopAttrib();
 }
 
-void render(GUI* gui, int displayWidth, int displayHeight)
+void renderGUI(GUI* gui, int displayWidth, int displayHeight)
 {
 	glClearColor(0, 0, 0, 0);
 	glClear(GL_COLOR_BUFFER_BIT);

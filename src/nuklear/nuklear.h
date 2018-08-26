@@ -1,4 +1,4 @@
-/* Changed the draw checkbox function on line 20151 to make it more clear whether it's ticked */
+/* Changed the draw checkbox function on line 20151 and option on 20193 to make it more clear whether they're ticked */
 
 /*
 /// # Nuklear
@@ -20217,13 +20217,13 @@ nk_draw_option(struct nk_command_buffer *out,
 
     /* draw background and cursor */
     if (background->type == NK_STYLE_ITEM_COLOR) {
-        nk_fill_circle(out, *selector, style->border_color);
-        nk_fill_circle(out, nk_shrink_rect(*selector, style->border), background->data.color);
+        //nk_fill_circle(out, *selector, style->border_color);
+        nk_stroke_circle(out, *selector, 2, background->data.color);
     } else nk_draw_image(out, *selector, &background->data.image, nk_white);
     if (active) {
         if (cursor->type == NK_STYLE_ITEM_IMAGE)
             nk_draw_image(out, *cursors, &cursor->data.image, nk_white);
-        else nk_fill_circle(out, *cursors, cursor->data.color);
+        else nk_fill_circle(out, *cursors, background->data.color);
     }
 
     text.padding.x = 0;

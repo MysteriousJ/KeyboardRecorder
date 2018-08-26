@@ -10,6 +10,12 @@ enum Mode {
 	Mode_waitingForPlaybackKey
 };
 
+enum PlaybackSpeed {
+	PlaybackSpeed_normal,
+	PlaybackSpeed_trimStartup,
+	PlaybackSpeed_fast
+};
+
 struct RecordedInput
 {
 	enum Type {press, release};
@@ -23,13 +29,13 @@ struct AppData
 {
 	std::vector<RecordedInput> recording;
 	Mode mode;
+	PlaybackSpeed playbackSpeed;
 	unsigned char startRecordingKey;
 	unsigned char playbackRecordingKey;
 	uint32 recordingFrameNumber;
 	uint nextPlaybackInputIndex;
 	// Booleans
 	int enabled;
-	int trimStartup;
 };
 
 
@@ -69,6 +75,7 @@ void updateGUI(GUI* gui, AppData* data, SystemInput input, int windowWidth, int 
 	// Layout GUI
 	if (nk_begin(ctx, "GUI", nk_rect(0, 0, (float)windowWidth, (float)windowHeight), 0))
 	{
+		// Key setting buttons
 		nk_layout_row_static(ctx, 30, windowWidth - 25, 1);
 		std::string label = "Record key: " + keyCodeToString(data->startRecordingKey);
 		bool highlight = false;
@@ -94,9 +101,20 @@ void updateGUI(GUI* gui, AppData* data, SystemInput input, int windowWidth, int 
 			data->mode = Mode_waitingForPlaybackKey;
 		}
 
+		// Enable checkbox
 		nk_layout_row_static(ctx, 20, windowWidth - 25, 1);
 		nk_checkbox_label(ctx, "Enabled", &data->enabled);
-		nk_checkbox_label(ctx, "Trim startup", &data->trimStartup);
+		nk_label(ctx, "Playback speed:", NK_TEXT_LEFT);
+
+		// Playback speed radio buttons
+		nk_layout_row_begin(ctx, NK_STATIC, 20, 3);
+		nk_layout_row_push(ctx, 50);
+		if (nk_option_label(ctx, "1:1", data->playbackSpeed == PlaybackSpeed_normal)) data->playbackSpeed = PlaybackSpeed_normal;
+		nk_layout_row_push(ctx, 110);
+		if (nk_option_label(ctx, "Trim Startup", data->playbackSpeed == PlaybackSpeed_trimStartup)) data->playbackSpeed = PlaybackSpeed_trimStartup;
+		nk_layout_row_push(ctx, 50); 
+		if (nk_option_label(ctx, "Fast", data->playbackSpeed == PlaybackSpeed_fast)) data->playbackSpeed = PlaybackSpeed_fast;
+		nk_layout_row_end(ctx);
 	}
 	nk_end(ctx);
 }
@@ -134,12 +152,20 @@ void playbackInputs(AppData* data)
 	{
 		uint inputIndex = data->nextPlaybackInputIndex;
 
-		if (inputIndex == 0 && data->trimStartup)
+		if (inputIndex == 0 && data->playbackSpeed == PlaybackSpeed_trimStartup)
 		{
 			// Skip ahead to first input
 			data->recordingFrameNumber = data->recording[0].frame;
 		}
 
+		if (data->playbackSpeed == PlaybackSpeed_fast)
+		{
+			simulateInput(data->recording[inputIndex]);
+			data->nextPlaybackInputIndex += 1;
+			return;
+		}
+		
+		// Normal playback speed
 		if (data->recording[inputIndex].frame > data->recordingFrameNumber) return;
 		simulateInput(data->recording[inputIndex]);
 		data->nextPlaybackInputIndex += 1;
@@ -164,7 +190,7 @@ bool getAnyKeyDown(SystemInput input, unsigned char* out_key)
 int WINAPI WinMain(HINSTANCE hInstance, HINSTANCE hPrevInstance, PSTR szCmdLine, int iCmdShow)
 {
 	Window win = {0};
-	createWindow(&win, 280, 140);
+	createWindow(&win, 280, 160);
 	setWindowTitle(&win, "- Keyboard Recorder");
 	SystemInput input;
 	AppData data;
@@ -173,11 +199,11 @@ int WINAPI WinMain(HINSTANCE hInstance, HINSTANCE hPrevInstance, PSTR szCmdLine,
 	bool run = true;
 
 	data.mode = Mode_idle;
+	data.playbackSpeed = PlaybackSpeed_normal;
 	data.startRecordingKey = VK_F1;
 	data.playbackRecordingKey = VK_F2;
 	data.recordingFrameNumber = 0;
 	data.enabled = true;
-	data.trimStartup = false;
 
 	while (run)
 	{
@@ -242,7 +268,7 @@ int WINAPI WinMain(HINSTANCE hInstance, HINSTANCE hPrevInstance, PSTR szCmdLine,
 		}
 
 		updateGUI(&gui, &data, input, windowWidth, windowHeight, windowActive);
-		render(&gui, windowWidth, windowHeight);
+		renderGUI(&gui, windowWidth, windowHeight);
 		++data.recordingFrameNumber;
 		swapBuffers(&win);
 	}
