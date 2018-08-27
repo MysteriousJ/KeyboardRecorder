@@ -222,10 +222,17 @@ int WINAPI WinMain(HINSTANCE hInstance, HINSTANCE hPrevInstance, PSTR szCmdLine,
 		{
 			if (input.keyboard[data.startRecordingKey].pressed)
 			{
-				data.mode = Mode_recording;
-				data.recordingFrameNumber = 0;
-				data.recording.clear();
-				setWindowTitle(&win, "O Keyboard Recorder");
+				if (data.mode == Mode_recording)
+				{
+					data.mode = Mode_idle;
+				}
+				else
+				{
+					data.mode = Mode_recording;
+					data.recordingFrameNumber = 0;
+					data.recording.clear();
+					setWindowTitle(&win, "O Keyboard Recorder");
+				}
 			}
 
 			if (input.keyboard[data.playbackRecordingKey].pressed)
