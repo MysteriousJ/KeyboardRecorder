@@ -54,8 +54,9 @@ void simulateInput(RecordedInput input)
 std::string keyCodeToString(unsigned char keyCode)
 {
 	uint scanCode = MapVirtualKey(keyCode, MAPVK_VK_TO_VSC);
+	uint extendedKeysFlag = 1 << 24;
 	char buffer[64];
-	GetKeyNameTextA(scanCode << 16, buffer, 64);
+	GetKeyNameTextA(scanCode << 16 | extendedKeysFlag, buffer, 64);
 	return buffer;
 }
 
