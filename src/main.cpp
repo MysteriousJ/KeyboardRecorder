@@ -53,10 +53,17 @@ void simulateInput(RecordedInput input)
 
 std::string keyCodeToString(unsigned char keyCode)
 {
-	uint scanCode = MapVirtualKey(keyCode, MAPVK_VK_TO_VSC);
-	uint extendedKeysFlag = 1 << 24;
+	HKL layout = GetKeyboardLayout(0);
+	uint scanCode = MapVirtualKeyEx(keyCode, MAPVK_VK_TO_VSC_EX, layout);
+	scanCode = MapVirtualKeyA(keyCode, MAPVK_VK_TO_VSC);
+	uint extendedKeysFlag = 0;
+	switch (keyCode) {
+		case VK_LEFT: case VK_RIGHT: case VK_UP: case VK_DOWN: case VK_PRIOR: case VK_NEXT:
+		case VK_HOME: case VK_END: case VK_INSERT: case VK_DELETE:
+			extendedKeysFlag = 1 << 24;
+	}
 	char buffer[64];
-	GetKeyNameTextA(scanCode << 16 | extendedKeysFlag, buffer, 64);
+	int result = GetKeyNameTextA((scanCode<<16) | extendedKeysFlag, buffer, 64);
 	return buffer;
 }
 
@@ -252,7 +259,7 @@ int WINAPI WinMain(HINSTANCE hInstance, HINSTANCE hPrevInstance, PSTR szCmdLine,
 
 		if (windowActive && data.mode == Mode_waitingForRecordKey)
 		{
-			if (getAnyKeyDown(input, &data.startRecordingKey))
+			if (input.mouse.leftButton.pressed || getAnyKeyDown(input, &data.startRecordingKey))
 			{
 				data.mode = Mode_idle;
 			}
@@ -260,7 +267,7 @@ int WINAPI WinMain(HINSTANCE hInstance, HINSTANCE hPrevInstance, PSTR szCmdLine,
 
 		if (windowActive && data.mode == Mode_waitingForPlaybackKey)
 		{
-			if (getAnyKeyDown(input, &data.playbackRecordingKey))
+			if (input.mouse.leftButton.pressed || getAnyKeyDown(input, &data.playbackRecordingKey))
 			{
 				data.mode = Mode_idle;
 			}
