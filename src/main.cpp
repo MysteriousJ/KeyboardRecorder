@@ -53,15 +53,22 @@ void simulateInput(RecordedInput input)
 
 std::string keyCodeToString(unsigned char keyCode)
 {
+	// GetKeyNameText names the arrow keys and pageup/pagedown/home/end/insert/delete
+	// "Numpad x". The extended key flag will give these keys their proper names, but
+	// messes up names for other keys, so we have to set it only for these specific
+	// keys. A windows function that can determine whether the flag should be set
+	// based on a virtual key code would be nice, but I haven't found one.
+	uint extendedKeysFlag = 0;
+	switch (keyCode) {
+	case VK_LEFT: case VK_RIGHT: case VK_UP: case VK_DOWN: case VK_PRIOR: case VK_NEXT:
+	case VK_HOME: case VK_END: case VK_INSERT: case VK_DELETE:
+		extendedKeysFlag = 1 << 24;
+	}
+
 	HKL layout = GetKeyboardLayout(0);
 	uint scanCode = MapVirtualKeyEx(keyCode, MAPVK_VK_TO_VSC_EX, layout);
 	scanCode = MapVirtualKeyA(keyCode, MAPVK_VK_TO_VSC);
-	uint extendedKeysFlag = 0;
-	switch (keyCode) {
-		case VK_LEFT: case VK_RIGHT: case VK_UP: case VK_DOWN: case VK_PRIOR: case VK_NEXT:
-		case VK_HOME: case VK_END: case VK_INSERT: case VK_DELETE:
-			extendedKeysFlag = 1 << 24;
-	}
+	
 	char buffer[64];
 	int result = GetKeyNameTextA((scanCode<<16) | extendedKeysFlag, buffer, 64);
 	return buffer;
@@ -84,7 +91,7 @@ void updateGUI(GUI* gui, AppData* data, SystemInput input, int windowWidth, int 
 	if (nk_begin(ctx, "GUI", nk_rect(0, 0, (float)windowWidth, (float)windowHeight), 0))
 	{
 		// Key setting buttons
-		nk_layout_row_static(ctx, 30, windowWidth - 25, 1);
+		nk_layout_row_dynamic(ctx, 30, 1);
 		std::string label = "Record key: " + keyCodeToString(data->startRecordingKey);
 		bool highlight = false;
 		if (data->mode == Mode_waitingForRecordKey)
@@ -92,10 +99,7 @@ void updateGUI(GUI* gui, AppData* data, SystemInput input, int windowWidth, int 
 			highlight = true;
 			label = "Press any key";
 		}
-		if (doButton(ctx, label, highlight))
-		{
-			data->mode = Mode_waitingForRecordKey;
-		}
+		if (doButton(ctx, label, highlight)) data->mode = Mode_waitingForRecordKey;
 
 		label = "Playback key: " + keyCodeToString(data->playbackRecordingKey);
 		highlight = false;
@@ -104,13 +108,10 @@ void updateGUI(GUI* gui, AppData* data, SystemInput input, int windowWidth, int 
 			highlight = true;
 			label = "Press any key";
 		}
-		if (doButton(ctx, label, highlight))
-		{
-			data->mode = Mode_waitingForPlaybackKey;
-		}
+		if (doButton(ctx, label, highlight)) data->mode = Mode_waitingForPlaybackKey;
 
 		// Playback speed radio buttons
-		nk_layout_row_static(ctx, 20, windowWidth - 25, 1);
+		nk_layout_row_dynamic(ctx, 20, 1);
 		nk_label(ctx, "Playback speed:", NK_TEXT_LEFT);
 		nk_layout_row_begin(ctx, NK_STATIC, 20, 3);
 		nk_layout_row_push(ctx, 50);
@@ -122,7 +123,7 @@ void updateGUI(GUI* gui, AppData* data, SystemInput input, int windowWidth, int 
 		nk_layout_row_end(ctx);
 
 		// Enable checkbox
-		nk_layout_row_static(ctx, 30, windowWidth - 25, 1);
+		nk_layout_row_dynamic(ctx, 30, 1);
 		nk_checkbox_label(ctx, "Enabled", &data->enabled);
 	}
 	nk_end(ctx);
