@@ -37,9 +37,6 @@ struct SystemInput
 	static const uint supportedKeyCount = 0xFF;
 	Button keyboard[supportedKeyCount];
 	Mouse mouse;
-	uint64 systemTime;
-	double runTime;
-	float deltaTime;
 };
 
 LRESULT CALLBACK WindowProc(HWND hwnd, UINT msg, WPARAM wParam, LPARAM lParam)
@@ -132,7 +129,7 @@ WindowMessages processWindowMessages(Window* inout_win)
 
 void waitForWindowMessages(Window window)
 {
-	// WaitMessage doesn't actually wait for some reason
+	// The WaitMessage function doesn't actually wait for some reason
 	MSG msg;
 	GetMessage(&msg, NULL, 0, 0);
 	PostMessage(window.hwnd, msg.message, msg.wParam, msg.lParam);
@@ -140,7 +137,8 @@ void waitForWindowMessages(Window window)
 
 void swapBuffers(Window* window)
 {
-	//wglSwapIntervalEXT(vSynch ? 1 : 0);
+	// For now, rely on GPU settings for vsynch.
+	// Maybe in the future: wglSwapIntervalEXT(vSynch ? 1 : 0);
 	HDC deviceContext = GetDC(window->hwnd);
 	SwapBuffers(deviceContext);
 	ReleaseDC(window->hwnd, deviceContext);
@@ -163,20 +161,6 @@ int getWindowHeight(Window window)
 	RECT windowClientRect;
 	GetClientRect(window.hwnd, &windowClientRect);
 	return (int)windowClientRect.bottom;
-}
-
-int64 getGlobalTime()
-{
-	LARGE_INTEGER time;
-	QueryPerformanceCounter(&time);
-	return time.QuadPart;
-}
-
-int64 getTicksPerSecond()
-{
-	LARGE_INTEGER ticksPerSecond;
-	QueryPerformanceFrequency(&ticksPerSecond);
-	return ticksPerSecond.QuadPart;
 }
 
 void updateButton(SystemInput::Button* inout_button, unsigned int isDown)
@@ -214,19 +198,4 @@ void updateSystemInput(SystemInput* input, Window window)
 		int isKeyDown = (1 << 16)&GetKeyState(i);
 		updateButton(&input->keyboard[i], isKeyDown);
 	}
-
-	// Time
-	uint64 newTime = getGlobalTime();
-	uint64 previousTime = input->systemTime;
-	uint64 ticksPerSecond = getTicksPerSecond();
-	if (newTime > previousTime) {
-		double deltaTime = double(newTime - previousTime) / double(ticksPerSecond);
-		input->runTime += deltaTime;
-		input->deltaTime = (float)deltaTime;
-	}
-	else {
-		// If time is uninitialized or wrapped around, don't change delta time
-		input->runTime += input->deltaTime;
-	}
-	input->systemTime = newTime;
 }

@@ -25,6 +25,7 @@ struct RecordedInput
 	Type type;
 };
 
+// Persistent data that needs to get passed around
 struct AppData
 {
 	std::vector<RecordedInput> recording;
@@ -131,9 +132,11 @@ void updateGUI(GUI* gui, AppData* data, SystemInput input, int windowWidth, int 
 
 void recordInputs(AppData* data, SystemInput input)
 {
+	// Record all keys that were pressed this frame
 	// Skip over the first 7 keycodes for mouse buttons
 	for (uint i=8; i<input.supportedKeyCount; ++i)
 	{
+		// Skip keys used for recording and playback
 		if (i != data->startRecordingKey
 			&& i != data->playbackRecordingKey)
 		{
@@ -162,9 +165,9 @@ void playbackInputs(AppData* data)
 	{
 		uint inputIndex = data->nextPlaybackInputIndex;
 
+		// If trimming startup, skip ahead to first input
 		if (inputIndex == 0 && data->playbackSpeed == PlaybackSpeed_trimStartup)
 		{
-			// Skip ahead to first input
 			data->recordingFrameNumber = data->recording[0].frame;
 		}
 
@@ -176,7 +179,10 @@ void playbackInputs(AppData* data)
 		}
 		
 		// Normal playback speed
-		if (data->recording[inputIndex].frame > data->recordingFrameNumber) return;
+		if (data->recording[inputIndex].frame > data->recordingFrameNumber)
+		{
+			return;
+		}
 		simulateInput(data->recording[inputIndex]);
 		data->nextPlaybackInputIndex += 1;
 	}
@@ -215,9 +221,13 @@ int WINAPI WinMain(HINSTANCE hInstance, HINSTANCE hPrevInstance, PSTR szCmdLine,
 	data.recordingFrameNumber = 0;
 	data.enabled = true;
 
+	// Frame-based loop like in a game
 	while (run)
 	{
-		if (!data.enabled) waitForWindowMessages(win); // Save power if we don't need to update every frame
+		// Save power if we don't need to update every frame
+		if (!data.enabled) waitForWindowMessages(win);
+
+		// Handle window messages
 		WindowMessages msg = processWindowMessages(&win);
 		if (msg.quit) run = false;
 
@@ -227,6 +237,7 @@ int WINAPI WinMain(HINSTANCE hInstance, HINSTANCE hPrevInstance, PSTR szCmdLine,
 
 		updateSystemInput(&input, win);
 		
+		// Update based on which mode the app is in
 		if (data.enabled && (data.mode == Mode_idle || data.mode == Mode_recording || data.mode == Mode_playback))
 		{
 			if (input.keyboard[data.startRecordingKey].pressed)
@@ -284,8 +295,11 @@ int WINAPI WinMain(HINSTANCE hInstance, HINSTANCE hPrevInstance, PSTR szCmdLine,
 			playbackInputs(&data);
 		}
 
+		// GUI
 		updateGUI(&gui, &data, input, windowWidth, windowHeight, windowActive);
 		renderGUI(&gui, windowWidth, windowHeight);
+
+		// Finish frame
 		++data.recordingFrameNumber;
 		swapBuffers(&win);
 	}
