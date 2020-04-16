@@ -1,6 +1,5 @@
 #include "Platform.h"
 #include "GUI.h"
-#include <vector>
 
 enum Mode {
 	Mode_idle,
@@ -18,64 +17,24 @@ enum PlaybackSpeed {
 
 struct RecordedInput
 {
-	enum Type {press, release};
-
-	unsigned char key;
+	KeyInput key;
 	uint32 frame;
-	Type type;
 };
 
 // Persistent data that needs to get passed around
 struct AppData
 {
-	std::vector<RecordedInput> recording;
+	DynamicArray<RecordedInput> recording;
 	Mode mode;
 	PlaybackSpeed playbackSpeed;
-	unsigned char startRecordingKey;
-	unsigned char playbackRecordingKey;
+	KeyInput startRecordingKey;
+	KeyInput playbackRecordingKey;
 	uint32 recordingFrameNumber;
 	uint nextPlaybackInputIndex;
-	// Booleans
 	int enabled;
 };
 
-
-void simulateInput(RecordedInput input)
-{
-	if (input.type == RecordedInput::press)
-	{
-		keybd_event(input.key, 0, 0, NULL);
-	}
-	else if (input.type == RecordedInput::release)
-	{
-		keybd_event(input.key, 0, KEYEVENTF_KEYUP, NULL);
-	}
-}
-
-std::string keyCodeToString(unsigned char keyCode)
-{
-	// GetKeyNameText names the arrow keys and pageup/pagedown/home/end/insert/delete
-	// "Numpad x". The extended key flag will give these keys their proper names, but
-	// messes up names for other keys, so we have to set it only for these specific
-	// keys. A windows function that can determine whether the flag should be set
-	// based on a virtual key code would be nice, but I haven't found one.
-	uint extendedKeysFlag = 0;
-	switch (keyCode) {
-	case VK_LEFT: case VK_RIGHT: case VK_UP: case VK_DOWN: case VK_PRIOR: case VK_NEXT:
-	case VK_HOME: case VK_END: case VK_INSERT: case VK_DELETE:
-		extendedKeysFlag = 1 << 24;
-	}
-
-	HKL layout = GetKeyboardLayout(0);
-	uint scanCode = MapVirtualKeyEx(keyCode, MAPVK_VK_TO_VSC_EX, layout);
-	scanCode = MapVirtualKeyA(keyCode, MAPVK_VK_TO_VSC);
-	
-	char buffer[64];
-	int result = GetKeyNameTextA((scanCode<<16) | extendedKeysFlag, buffer, 64);
-	return buffer;
-}
-
-void updateGUI(GUI* gui, AppData* data, SystemInput input, int windowWidth, int windowHeight, bool windowActive)
+void updateGUI(GUI* gui, AppData* data, WindowInput input, int windowWidth, int windowHeight, bool windowActive)
 {
 	nk_context *ctx = &gui->ctx;
 
@@ -93,7 +52,7 @@ void updateGUI(GUI* gui, AppData* data, SystemInput input, int windowWidth, int 
 	{
 		// Key setting buttons
 		nk_layout_row_dynamic(ctx, 30, 1);
-		std::string label = "Record key: " + keyCodeToString(data->startRecordingKey);
+		std::string label = "Record key: " + keyToString(data->startRecordingKey);
 		bool highlight = false;
 		if (data->mode == Mode_waitingForRecordKey)
 		{
@@ -102,7 +61,7 @@ void updateGUI(GUI* gui, AppData* data, SystemInput input, int windowWidth, int 
 		}
 		if (doButton(ctx, label, highlight)) data->mode = Mode_waitingForRecordKey;
 
-		label = "Playback key: " + keyCodeToString(data->playbackRecordingKey);
+		label = "Playback key: " + keyToString(data->playbackRecordingKey);
 		highlight = false;
 		if (data->mode == Mode_waitingForPlaybackKey)
 		{
@@ -123,38 +82,26 @@ void updateGUI(GUI* gui, AppData* data, SystemInput input, int windowWidth, int 
 		if (nk_option_label(ctx, "Fast", data->playbackSpeed == PlaybackSpeed_fast)) data->playbackSpeed = PlaybackSpeed_fast;
 		nk_layout_row_end(ctx);
 
-		// Enable checkbox
+		// Checkbox for enable toggle
 		nk_layout_row_dynamic(ctx, 30, 1);
 		nk_checkbox_label(ctx, "Enabled", &data->enabled);
 	}
 	nk_end(ctx);
 }
 
-void recordInputs(AppData* data, SystemInput input)
+void recordInputs(AppData* data, WindowInput input)
 {
-	// Record all keys that were pressed this frame
-	// Skip over the first 7 keycodes for mouse buttons
-	for (uint i=8; i<input.supportedKeyCount; ++i)
+	for (uint i=0; i<input.keyEvents.count; ++i)
 	{
+		KeyInput key = input.keyEvents[i];
 		// Skip keys used for recording and playback
-		if (i != data->startRecordingKey
-			&& i != data->playbackRecordingKey)
+		if (!(key.scancode == data->startRecordingKey.scancode && key.extended == data->startRecordingKey.extended)
+			&& !(key.scancode == data->playbackRecordingKey.scancode && key.extended == data->playbackRecordingKey.extended))
 		{
 			RecordedInput action = {0};
-			action.key = i;
+			action.key = key;
 			action.frame = data->recordingFrameNumber;
-
-			if (input.keyboard[i].pressed)
-			{
-				action.type = RecordedInput::Type::press;
-				data->recording.push_back(action);
-			}
-
-			if (input.keyboard[i].released)
-			{
-				action.type = RecordedInput::Type::release;
-				data->recording.push_back(action);
-			}
+			data->recording.push_back(action);
 		}
 	}
 }
@@ -173,7 +120,7 @@ void playbackInputs(AppData* data)
 
 		if (data->playbackSpeed == PlaybackSpeed_fast)
 		{
-			simulateInput(data->recording[inputIndex]);
+			simulateInput(data->recording[inputIndex].key);
 			data->nextPlaybackInputIndex += 1;
 			return;
 		}
@@ -183,20 +130,17 @@ void playbackInputs(AppData* data)
 		{
 			return;
 		}
-		simulateInput(data->recording[inputIndex]);
+		simulateInput(data->recording[inputIndex].key);
 		data->nextPlaybackInputIndex += 1;
 	}
 	// Reached the end
 	data->mode = Mode_idle;
 }
 
-bool getAnyKeyDown(SystemInput input, unsigned char* out_key)
+bool keyWasPressed(DynamicArray<KeyInput> keys, KeyInput target)
 {
-	// Skip over the first 7 keycodes for mouse buttons
-	for (uint i=8; i<input.supportedKeyCount; ++i)
-	{
-		if (input.keyboard[i].pressed) {
-			*out_key = i;
+	for (uint i = 0; i < keys.count; ++i) {
+		if (keys[i].type == KeyInput::press && keys[i].scancode == target.scancode && keys[i].extended == target.extended) {
 			return true;
 		}
 	}
@@ -208,39 +152,34 @@ int WINAPI WinMain(HINSTANCE hInstance, HINSTANCE hPrevInstance, PSTR szCmdLine,
 	Window win = {0};
 	createWindow(&win, 280, 165);
 	setWindowTitle(&win, "- Keyboard Recorder");
-	SystemInput input;
-	AppData data;
+	WindowInput input = {0};
+	AppData data = {0};
 	GUI gui = {0};
 	initGUI(&gui);
 	bool run = true;
 
-	data.mode = Mode_idle;
-	data.playbackSpeed = PlaybackSpeed_normal;
-	data.startRecordingKey = VK_F1;
-	data.playbackRecordingKey = VK_F2;
-	data.recordingFrameNumber = 0;
+	data.startRecordingKey.scancode = MapVirtualKey(VK_F1, MAPVK_VK_TO_VSC);
+	data.playbackRecordingKey.scancode = MapVirtualKey(VK_F2, MAPVK_VK_TO_VSC);
 	data.enabled = true;
 
 	// Frame-based loop like in a game
 	while (run)
 	{
 		// Save power if we don't need to update every frame
-		if (!data.enabled) waitForWindowMessages(win);
+		bool waitForMessages = !data.enabled || data.mode == Mode_idle;
 
 		// Handle window messages
-		WindowMessages msg = processWindowMessages(&win);
-		if (msg.quit) run = false;
+		updateWindowInput(&win, &input, waitForMessages);
+		if (input.quit) run = false;
 
 		bool windowActive = win.hwnd == GetActiveWindow();
 		int windowWidth = getWindowWidth(win);
 		int windowHeight = getWindowHeight(win);
-
-		updateSystemInput(&input, win);
 		
 		// Update based on which mode the app is in
 		if (data.enabled && (data.mode == Mode_idle || data.mode == Mode_recording || data.mode == Mode_playback))
 		{
-			if (input.keyboard[data.startRecordingKey].pressed)
+			if (keyWasPressed(input.keyEvents, data.startRecordingKey))
 			{
 				if (data.mode == Mode_recording)
 				{
@@ -255,7 +194,7 @@ int WINAPI WinMain(HINSTANCE hInstance, HINSTANCE hPrevInstance, PSTR szCmdLine,
 				}
 			}
 
-			if (input.keyboard[data.playbackRecordingKey].pressed)
+			if (keyWasPressed(input.keyEvents, data.playbackRecordingKey))
 			{
 				data.mode = Mode_playback;
 				data.recordingFrameNumber = 0;
@@ -264,23 +203,24 @@ int WINAPI WinMain(HINSTANCE hInstance, HINSTANCE hPrevInstance, PSTR szCmdLine,
 			}
 		}
 
-		if (data.mode == Mode_idle)
-		{
-			setWindowTitle(&win, "- Keyboard Recorder");
-		}
-
 		if (windowActive && data.mode == Mode_waitingForRecordKey)
 		{
-			if (input.mouse.leftButton.pressed || getAnyKeyDown(input, &data.startRecordingKey))
-			{
+			if (input.mouse.leftButton.pressed) {
+				data.mode = Mode_idle;
+			}
+			if (input.keyEvents.count > 0) {
+				data.startRecordingKey = input.keyEvents[0];
 				data.mode = Mode_idle;
 			}
 		}
 
 		if (windowActive && data.mode == Mode_waitingForPlaybackKey)
 		{
-			if (input.mouse.leftButton.pressed || getAnyKeyDown(input, &data.playbackRecordingKey))
-			{
+			if (input.mouse.leftButton.pressed) {
+				data.mode = Mode_idle;
+			}
+			if (input.keyEvents.count > 0) {
+				data.playbackRecordingKey = input.keyEvents[0];
 				data.mode = Mode_idle;
 			}
 		}
@@ -293,6 +233,11 @@ int WINAPI WinMain(HINSTANCE hInstance, HINSTANCE hPrevInstance, PSTR szCmdLine,
 		if (data.mode == Mode_playback)
 		{
 			playbackInputs(&data);
+		}
+
+		if (data.mode == Mode_idle)
+		{
+			setWindowTitle(&win, "- Keyboard Recorder");
 		}
 
 		// GUI
