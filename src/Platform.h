@@ -46,8 +46,6 @@ struct WindowInput
 	Mouse mouse;
 };
 
-BOOL(__stdcall *wglSwapIntervalEXT)(int interval);
-
 LRESULT CALLBACK WindowProc(HWND hwnd, UINT msg, WPARAM wParam, LPARAM lParam)
 {
 	WindowInput* input = (WindowInput*)GetProp(hwnd, TEXT("messages"));
@@ -125,8 +123,9 @@ void createWindow(Window* window, uint width, uint height)
 	}
 	ReleaseDC(window->hwnd, deviceContext);
 
-	// Load OpenGL extensions
-	wglSwapIntervalEXT = (BOOL(__stdcall*)(int)) wglGetProcAddress("wglSwapIntervalEXT");
+	// Turn on VSync
+	BOOL(__stdcall *wglSwapIntervalEXT)(int interval) = (BOOL(__stdcall*)(int)) wglGetProcAddress("wglSwapIntervalEXT");
+	wglSwapIntervalEXT(1);
 
 	// Setup RawInput. Gets keyboard messages even when the window is not focused.
 	RAWINPUTDEVICE rid;
@@ -193,7 +192,6 @@ void updateWindowInput(Window* win, WindowInput* input, bool waitForMessages)
 void swapBuffers(Window* window)
 {
 	HDC deviceContext = GetDC(window->hwnd);
-	wglSwapIntervalEXT(1); // Use VSync
 	SwapBuffers(deviceContext);
 	ReleaseDC(window->hwnd, deviceContext);
 }

@@ -137,6 +137,19 @@ void playbackInputs(AppData* data)
 	data->mode = Mode_idle;
 }
 
+void releasePressedKeys(AppData* data)
+{
+	// If playback is cancelled, keys can get stuck down.
+	// Send key-up messages for any keys that could be down when playback ended.
+	for (unsigned int i=0; i<data->nextPlaybackInputIndex; ++i) {
+		if (data->recording[i].key.type == KeyInput::press) {
+			KeyInput release = data->recording[i].key;
+			release.type = KeyInput::release;
+			simulateInput(release);
+		}
+	}
+}
+
 bool keyWasPressed(DynamicArray<KeyInput> keys, KeyInput target)
 {
 	for (uint i = 0; i < keys.count; ++i) {
@@ -145,6 +158,22 @@ bool keyWasPressed(DynamicArray<KeyInput> keys, KeyInput target)
 		}
 	}
 	return false;
+}
+
+void startRecording(AppData* data, Window* win)
+{
+	data->mode = Mode_recording;
+	data->recordingFrameNumber = 0;
+	data->recording.clear();
+	setWindowTitle(win, "O Keyboard Recorder");
+}
+
+void startPlayback(AppData* data, Window* win)
+{
+	data->mode = Mode_playback;
+	data->recordingFrameNumber = 0;
+	data->nextPlaybackInputIndex = 0;
+	setWindowTitle(win, "> Keyboard Recorder");
 }
 
 int WINAPI WinMain(HINSTANCE hInstance, HINSTANCE hPrevInstance, PSTR szCmdLine, int iCmdShow)
@@ -166,7 +195,7 @@ int WINAPI WinMain(HINSTANCE hInstance, HINSTANCE hPrevInstance, PSTR szCmdLine,
 	while (run)
 	{
 		// Save power if we don't need to update every frame
-		bool waitForMessages = !data.enabled || data.mode == Mode_idle;
+		bool waitForMessages = data.mode == Mode_idle;
 
 		// Handle window messages
 		updateWindowInput(&win, &input, waitForMessages);
@@ -177,34 +206,17 @@ int WINAPI WinMain(HINSTANCE hInstance, HINSTANCE hPrevInstance, PSTR szCmdLine,
 		int windowHeight = getWindowHeight(win);
 		
 		// Update based on which mode the app is in
-		if (data.enabled && (data.mode == Mode_idle || data.mode == Mode_recording || data.mode == Mode_playback))
-		{
-			if (keyWasPressed(input.keyEvents, data.startRecordingKey))
-			{
-				if (data.mode == Mode_recording)
-				{
-					data.mode = Mode_idle;
-				}
-				else
-				{
-					data.mode = Mode_recording;
-					data.recordingFrameNumber = 0;
-					data.recording.clear();
-					setWindowTitle(&win, "O Keyboard Recorder");
-				}
+		if (data.mode == Mode_idle && data.enabled) {
+			setWindowTitle(&win, "- Keyboard Recorder");
+			if (keyWasPressed(input.keyEvents, data.startRecordingKey)) {
+				startRecording(&data, &win);
+			}
+			if (keyWasPressed(input.keyEvents, data.playbackRecordingKey)) {
+				startPlayback(&data, &win);
 			}
 
-			if (keyWasPressed(input.keyEvents, data.playbackRecordingKey))
-			{
-				data.mode = Mode_playback;
-				data.recordingFrameNumber = 0;
-				data.nextPlaybackInputIndex = 0;
-				setWindowTitle(&win, "> Keyboard Recorder");
-			}
 		}
-
-		if (windowActive && data.mode == Mode_waitingForRecordKey)
-		{
+		else if (data.mode == Mode_waitingForRecordKey && windowActive) {
 			if (input.mouse.leftButton.pressed) {
 				data.mode = Mode_idle;
 			}
@@ -213,9 +225,7 @@ int WINAPI WinMain(HINSTANCE hInstance, HINSTANCE hPrevInstance, PSTR szCmdLine,
 				data.mode = Mode_idle;
 			}
 		}
-
-		if (windowActive && data.mode == Mode_waitingForPlaybackKey)
-		{
+		else if (data.mode == Mode_waitingForPlaybackKey && windowActive) {
 			if (input.mouse.leftButton.pressed) {
 				data.mode = Mode_idle;
 			}
@@ -224,25 +234,36 @@ int WINAPI WinMain(HINSTANCE hInstance, HINSTANCE hPrevInstance, PSTR szCmdLine,
 				data.mode = Mode_idle;
 			}
 		}
-
-		if (data.mode == Mode_recording)
-		{
-			recordInputs(&data, input);
+		else if (data.mode == Mode_recording) {
+			if (keyWasPressed(input.keyEvents, data.startRecordingKey)) {
+				data.mode = Mode_idle;
+			}
+			else if (keyWasPressed(input.keyEvents, data.playbackRecordingKey)) {
+				startPlayback(&data, &win);
+			}
+			else {
+				recordInputs(&data, input);
+			}
 		}
-
-		if (data.mode == Mode_playback)
-		{
-			playbackInputs(&data);
-		}
-
-		if (data.mode == Mode_idle)
-		{
-			setWindowTitle(&win, "- Keyboard Recorder");
+		else if (data.mode == Mode_playback) {
+			if (keyWasPressed(input.keyEvents, data.startRecordingKey)) {
+				releasePressedKeys(&data);
+				startRecording(&data, &win);
+			}
+			else if (keyWasPressed(input.keyEvents, data.playbackRecordingKey)) {
+				releasePressedKeys(&data);
+				startPlayback(&data, &win);
+			}
+			else {
+				playbackInputs(&data);
+			}
 		}
 
 		// GUI
-		updateGUI(&gui, &data, input, windowWidth, windowHeight, windowActive);
-		renderGUI(&gui, windowWidth, windowHeight);
+		if (windowActive) {
+			updateGUI(&gui, &data, input, windowWidth, windowHeight, windowActive);
+			renderGUI(&gui, windowWidth, windowHeight);
+		}
 
 		// Finish frame
 		++data.recordingFrameNumber;
