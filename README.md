@@ -1,5 +1,5 @@
 # KeyboardRecorder
-I made this application to work around lack of quick input recording in arcade fighting games/emulators. Inputs are recorded and played back by frames, so it should synch with your game as long as your computer has vsynch enabled. A pre-built .exe is included in the repository and ready to go.
+I made this application to work around lack of quick input recording in arcade fighting games/emulators. Inputs are recorded and played back by frames, so it should sync with your game as long as your computer has vsync enabled. A pre-built .exe is included in the repository and ready to go.
 
 ![screen cap](/screen.png)
 
