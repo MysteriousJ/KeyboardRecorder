@@ -32,6 +32,7 @@ struct AppData
 	uint32 recordingFrameNumber;
 	uint nextPlaybackInputIndex;
 	int enabled;
+	int loop;
 };
 
 void updateGUI(GUI* gui, AppData* data, WindowInput input, int windowWidth, int windowHeight, bool windowActive)
@@ -82,8 +83,10 @@ void updateGUI(GUI* gui, AppData* data, WindowInput input, int windowWidth, int 
 		if (nk_option_label(ctx, "Fast", data->playbackSpeed == PlaybackSpeed_fast)) data->playbackSpeed = PlaybackSpeed_fast;
 		nk_layout_row_end(ctx);
 
+		// Checkbox for loop
+		nk_layout_row_dynamic(ctx, 30, 2);
+		nk_checkbox_label(ctx, "Loop", &data->loop);
 		// Checkbox for enable toggle
-		nk_layout_row_dynamic(ctx, 30, 1);
 		nk_checkbox_label(ctx, "Enabled", &data->enabled);
 	}
 	nk_end(ctx);
@@ -134,7 +137,13 @@ void playbackInputs(AppData* data)
 		data->nextPlaybackInputIndex += 1;
 	}
 	// Reached the end
-	data->mode = Mode_idle;
+	if (data->loop) {
+		data->nextPlaybackInputIndex = 0;
+		data->recordingFrameNumber = 0;
+	}
+	else {
+		data->mode = Mode_idle;
+	}
 }
 
 void releasePressedKeys(AppData* data)
@@ -246,7 +255,11 @@ int WINAPI WinMain(HINSTANCE hInstance, HINSTANCE hPrevInstance, PSTR szCmdLine,
 			}
 		}
 		else if (data.mode == Mode_playback) {
-			if (keyWasPressed(input.keyEvents, data.startRecordingKey)) {
+			if (!data.enabled) {
+				data.mode = Mode_idle;
+				setWindowTitle(&win, "- Keyboard Recorder");
+			}
+			else if (keyWasPressed(input.keyEvents, data.startRecordingKey)) {
 				releasePressedKeys(&data);
 				startRecording(&data, &win);
 			}
