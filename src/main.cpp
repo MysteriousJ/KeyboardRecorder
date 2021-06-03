@@ -6,7 +6,8 @@ enum Mode {
 	Mode_recording,
 	Mode_playback,
 	Mode_waitingForRecordKey,
-	Mode_waitingForPlaybackKey
+	Mode_waitingForPlaybackKey,
+	Mode_waitingForStopKey
 };
 
 enum PlaybackSpeed {
@@ -29,6 +30,7 @@ struct AppData
 	PlaybackSpeed playbackSpeed;
 	KeyInput startRecordingKey;
 	KeyInput playbackRecordingKey;
+	KeyInput stopPlaybackKey;
 	uint32 recordingFrameNumber;
 	uint nextPlaybackInputIndex;
 	int enabled;
@@ -70,6 +72,15 @@ void updateGUI(GUI* gui, AppData* data, WindowInput input, int windowWidth, int 
 			label = "Press any key";
 		}
 		if (doButton(ctx, label, highlight)) data->mode = Mode_waitingForPlaybackKey;
+
+		label = "Stop key: " + keyToString(data->stopPlaybackKey);
+		highlight = false;
+		if (data->mode == Mode_waitingForStopKey)
+		{
+			highlight = true;
+			label = "Press any key";
+		}
+		if (doButton(ctx, label, highlight)) data->mode = Mode_waitingForStopKey;
 
 		// Playback speed radio buttons
 		nk_layout_row_dynamic(ctx, 20, 1);
@@ -185,10 +196,18 @@ void startPlayback(AppData* data, Window* win)
 	setWindowTitle(win, "> Keyboard Recorder");
 }
 
+void stopPlayback(AppData* data, Window* win)
+{
+	data->mode = Mode_idle;
+	data->recordingFrameNumber = 0;
+	data->nextPlaybackInputIndex = 0;
+	setWindowTitle(win, "- Keyboard Recorder");
+}
+
 int WINAPI WinMain(HINSTANCE hInstance, HINSTANCE hPrevInstance, PSTR szCmdLine, int iCmdShow)
 {
 	Window win = {0};
-	createWindow(&win, 280, 165);
+	createWindow(&win, 280, 200);
 	setWindowTitle(&win, "- Keyboard Recorder");
 	WindowInput input = {0};
 	AppData data = {0};
@@ -198,6 +217,7 @@ int WINAPI WinMain(HINSTANCE hInstance, HINSTANCE hPrevInstance, PSTR szCmdLine,
 
 	data.startRecordingKey.scancode = MapVirtualKey(VK_F1, MAPVK_VK_TO_VSC);
 	data.playbackRecordingKey.scancode = MapVirtualKey(VK_F2, MAPVK_VK_TO_VSC);
+	data.stopPlaybackKey.scancode = MapVirtualKey(VK_F3, MAPVK_VK_TO_VSC);
 	data.enabled = true;
 
 	// Frame-based loop like in a game
@@ -243,6 +263,15 @@ int WINAPI WinMain(HINSTANCE hInstance, HINSTANCE hPrevInstance, PSTR szCmdLine,
 				data.mode = Mode_idle;
 			}
 		}
+		else if (data.mode == Mode_waitingForStopKey && windowActive) {
+			if (input.mouse.leftButton.pressed) {
+				data.mode = Mode_idle;
+			}
+			if (input.keyEvents.count > 0) {
+				data.stopPlaybackKey = input.keyEvents[0];
+				data.mode = Mode_idle;
+			}
+		}
 		else if (data.mode == Mode_recording) {
 			if (keyWasPressed(input.keyEvents, data.startRecordingKey)) {
 				data.mode = Mode_idle;
@@ -266,6 +295,10 @@ int WINAPI WinMain(HINSTANCE hInstance, HINSTANCE hPrevInstance, PSTR szCmdLine,
 			else if (keyWasPressed(input.keyEvents, data.playbackRecordingKey)) {
 				releasePressedKeys(&data);
 				startPlayback(&data, &win);
+			}
+			else if (keyWasPressed(input.keyEvents, data.stopPlaybackKey)) {
+				releasePressedKeys(&data);
+				stopPlayback(&data, &win);
 			}
 			else {
 				playbackInputs(&data);
