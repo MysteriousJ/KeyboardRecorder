@@ -51,6 +51,7 @@ void saveRecording(AppData* data)
 void loadRecording(AppData* data)
 {
 	if (FILE* file = openFileFromLoadDialog()) {
+		data->recording.clear();
 		char line[256];
 		while (fgets(line, sizeof(line), file)) {
 			RecordedInput input = {0};

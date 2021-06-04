@@ -242,23 +242,23 @@ std::string keyToString(KeyInput key)
 FILE* openFileFromSaveDialog()
 {
 	char path[MAX_PATH] = {0};
-	char title[MAX_PATH] = {0};
 	OPENFILENAMEA ofn = {sizeof(OPENFILENAMEA)};
 	ofn.lpstrFilter = "Recording (.rec)\0*.rec\0\0";
+	ofn.lpstrDefExt = "rec";
 	ofn.lpstrFile = path;
 	ofn.nMaxFile = MAX_PATH;
-	ofn.lpstrFileTitle = title;
-	ofn.nMaxFileTitle = MAX_PATH;
 	if (GetSaveFileNameA(&ofn)) return fopen(path, "w");
 	return 0;
 }
 
 FILE* openFileFromLoadDialog()
 {
-	char fileName[MAX_PATH] = {0};
+	char path[MAX_PATH] = {0};
 	OPENFILENAMEA ofn = {sizeof(OPENFILENAMEA)};
-	ofn.lpstrFile = fileName;
+	ofn.lpstrFilter = "Recording (.rec)\0*.rec\0\0";
+	ofn.lpstrDefExt = "rec";
+	ofn.lpstrFile = path;
 	ofn.nMaxFile = MAX_PATH;
-	if (GetOpenFileNameA(&ofn)) return fopen(fileName, "r");
+	if (GetOpenFileNameA(&ofn)) return fopen(path, "r");
 	return 0;
 }
