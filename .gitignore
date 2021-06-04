@@ -1,3 +1,5 @@
 *.pdb
 *.ilk
 *.obj
+vs/Debug
+vs/.vs
