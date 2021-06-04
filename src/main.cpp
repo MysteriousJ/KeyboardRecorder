@@ -37,6 +37,30 @@ struct AppData
 	int loop;
 };
 
+void saveRecording(AppData* data)
+{
+	if (FILE* file = openFileFromSaveDialog()) {
+		for (uint i=0; i<data->recording.count; ++i) {
+			RecordedInput input = data->recording[i];
+			fprintf(file, "%d %d %d %d %s\n", input.key.scancode, input.key.extended, input.key.type, input.frame, keyToString(input.key).c_str());
+		}
+		fclose(file);
+	}
+}
+
+void loadRecording(AppData* data)
+{
+	if (FILE* file = openFileFromLoadDialog()) {
+		char line[256];
+		while (fgets(line, sizeof(line), file)) {
+			RecordedInput input = {0};
+			sscanf(line, "%hd %d %d %d", &input.key.scancode, &input.key.extended, &input.key.type, &input.frame);
+			data->recording.push_back(input);
+		}
+		fclose(file);
+	}
+}
+
 void updateGUI(GUI* gui, AppData* data, WindowInput input, int windowWidth, int windowHeight, bool windowActive)
 {
 	nk_context *ctx = &gui->ctx;
@@ -53,6 +77,16 @@ void updateGUI(GUI* gui, AppData* data, WindowInput input, int windowWidth, int 
 	// Layout GUI
 	if (nk_begin(ctx, "GUI", nk_rect(0, 0, (float)windowWidth, (float)windowHeight), 0))
 	{
+		// File save and load buttons
+		nk_layout_row_begin(ctx, NK_STATIC, 25, 5);
+		nk_layout_row_push(ctx, 45);
+		if (nk_button_label(ctx, "Save")) {
+			saveRecording(data);
+		}
+		if (nk_button_label(ctx, "Load")) {
+			loadRecording(data);
+		}
+
 		// Key setting buttons
 		nk_layout_row_dynamic(ctx, 30, 1);
 		std::string label = "Record key: " + keyToString(data->startRecordingKey);
@@ -110,7 +144,7 @@ void recordInputs(AppData* data, WindowInput input)
 		KeyInput key = input.keyEvents[i];
 		// Skip keys used for recording and playback
 		if (!(key.scancode == data->startRecordingKey.scancode && key.extended == data->startRecordingKey.extended)
-			&& !(key.scancode == data->playbackRecordingKey.scancode && key.extended == data->playbackRecordingKey.extended))
+				&& !(key.scancode == data->playbackRecordingKey.scancode && key.extended == data->playbackRecordingKey.extended))
 		{
 			RecordedInput action = {0};
 			action.key = key;
@@ -138,7 +172,7 @@ void playbackInputs(AppData* data)
 			data->nextPlaybackInputIndex += 1;
 			return;
 		}
-		
+
 		// Normal playback speed
 		if (data->recording[inputIndex].frame > data->recordingFrameNumber)
 		{
@@ -207,7 +241,7 @@ void stopPlayback(AppData* data, Window* win)
 int WINAPI WinMain(HINSTANCE hInstance, HINSTANCE hPrevInstance, PSTR szCmdLine, int iCmdShow)
 {
 	Window win = {0};
-	createWindow(&win, 280, 200);
+	createWindow(&win, 280, 230);
 	setWindowTitle(&win, "- Keyboard Recorder");
 	WindowInput input = {0};
 	AppData data = {0};
@@ -233,7 +267,7 @@ int WINAPI WinMain(HINSTANCE hInstance, HINSTANCE hPrevInstance, PSTR szCmdLine,
 		bool windowActive = win.hwnd == GetActiveWindow();
 		int windowWidth = getWindowWidth(win);
 		int windowHeight = getWindowHeight(win);
-		
+
 		// Update based on which mode the app is in
 		if (data.mode == Mode_idle && data.enabled) {
 			setWindowTitle(&win, "- Keyboard Recorder");

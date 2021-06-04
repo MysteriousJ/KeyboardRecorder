@@ -23,7 +23,7 @@ struct KeyInput
 	enum Type { press, release };
 
 	unsigned short scancode;
-	bool extended;
+	unsigned int extended;
 	Type type;
 };
 
@@ -131,7 +131,7 @@ void createWindow(Window* window, uint width, uint height)
 	RAWINPUTDEVICE rid;
 	rid.usUsagePage = 0x01;
 	rid.usUsage = 0x06;
-	rid.dwFlags = RIDEV_INPUTSINK | RIDEV_NOLEGACY;
+	rid.dwFlags = RIDEV_INPUTSINK;
 	rid.hwndTarget = window->hwnd;
 	RegisterRawInputDevices(&rid, 1, sizeof(RAWINPUTDEVICE));
 }
@@ -237,4 +237,28 @@ std::string keyToString(KeyInput key)
 	char buffer[64];
 	int result = GetKeyNameTextA(fullScancode, buffer, 64);
 	return buffer;
+}
+
+FILE* openFileFromSaveDialog()
+{
+	char path[MAX_PATH] = {0};
+	char title[MAX_PATH] = {0};
+	OPENFILENAMEA ofn = {sizeof(OPENFILENAMEA)};
+	ofn.lpstrFilter = "Recording (.rec)\0*.rec\0\0";
+	ofn.lpstrFile = path;
+	ofn.nMaxFile = MAX_PATH;
+	ofn.lpstrFileTitle = title;
+	ofn.nMaxFileTitle = MAX_PATH;
+	if (GetSaveFileNameA(&ofn)) return fopen(path, "w");
+	return 0;
+}
+
+FILE* openFileFromLoadDialog()
+{
+	char fileName[MAX_PATH] = {0};
+	OPENFILENAMEA ofn = {sizeof(OPENFILENAMEA)};
+	ofn.lpstrFile = fileName;
+	ofn.nMaxFile = MAX_PATH;
+	if (GetOpenFileNameA(&ofn)) return fopen(fileName, "r");
+	return 0;
 }
